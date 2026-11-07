@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Блоки</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@property --bg{syntax:'<color>';inherits:true;initial-value:#101A46}
+@property --ac{syntax:'<color>';inherits:true;initial-value:#245BFF}
+@property --c0{syntax:'<color>';inherits:true;initial-value:#245BFF}
+@property --c1{syntax:'<color>';inherits:true;initial-value:#4F86FF}
+@property --c2{syntax:'<color>';inherits:true;initial-value:#8DB4FF}
+@property --c3{syntax:'<color>';inherits:true;initial-value:#5B3DF5}
+@property --c4{syntax:'<color>';inherits:true;initial-value:#2FC4F0}
+:root{--ink:#f1f1ec;--mut:#9aa0c4;--empty:color-mix(in srgb,var(--bg) 88%,white);--frame:color-mix(in srgb,var(--bg) 65%,black);
+transition:--bg .9s,--ac .9s,--c0 .9s,--c1 .9s,--c2 .9s,--c3 .9s,--c4 .9s}
+*{box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
+#app{height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;padding:16px 12px calc(16px + env(safe-area-inset-bottom));gap:16px}
+header{display:flex;justify-content:space-between;align-items:flex-end}
+.s b{font-size:34px;font-weight:700;display:block;line-height:1;font-variant-numeric:tabular-nums}
+.s span{font-size:13px;color:var(--mut)}
+.s.r{text-align:right}.s.r b{font-size:22px;color:var(--ac)}
+#snd,#pal{background:none;border:0;font-size:22px;padding:4px 6px;color:var(--ink);cursor:pointer}
+.hbtns{display:flex;align-items:center;gap:2px}
+#board{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;aspect-ratio:1;background:var(--frame);padding:3px;border-radius:14px}
+.c{border-radius:5px;background:var(--empty);min-width:0}
+.f{box-shadow:inset 0 -3px 0 rgba(0,0,0,.25),inset 0 2px 0 rgba(255,255,255,.25)}
+.c0{background:var(--c0)}.c1{background:var(--c1)}.c2{background:var(--c2)}.c3{background:var(--c3)}.c4{background:var(--c4)}
+.p{background:rgba(255,255,255,.3)}
+.h{background:transparent;box-shadow:none}
+#tray{flex:1;display:flex;align-items:flex-end;justify-content:space-around;padding-bottom:8px}
+.slot{flex:1;height:130px;display:flex;align-items:center;justify-content:center}
+.pc{display:grid;gap:3px}
+#toast{position:fixed;left:0;right:0;top:34%;text-align:center;font-size:30px;font-weight:700;color:var(--ac);opacity:0;pointer-events:none;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+#toast.on{animation:t 1s}@keyframes t{0%{opacity:0;transform:translateY(14px) scale(.9)}15%,70%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-10px)}}
+#over{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 92%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;visibility:hidden;transition:opacity .45s,visibility .45s}
+#over.on{opacity:1;visibility:visible}
+#over h1{margin:0;font-size:28px}#over p{margin:0;color:var(--mut)}
+#over button{margin-top:12px;font:inherit;font-weight:600;font-size:18px;padding:14px 32px;border:0;border-radius:12px;background:var(--ac);color:var(--bg)}
+</style></head><body>
+<div id="app">
+<header><div class="s"><b id="sc">0</b><span>Счёт</span></div><div class="hbtns"><button id="pal" aria-label="Палитра">🎨</button><button id="snd" aria-label="Звук">🔊</button></div><div class="s r"><b id="bs">0</b><span>Рекорд</span></div></header>
+<div id="board"></div>
+<div id="tray"></div>
+</div>
+<div id="toast"></div>
+<div id="over"><h1>Места нет</h1><p id="fin"></p><button id="again">Сыграть ещё</button></div>
+<script>
+const tg=window.Telegram&&Telegram.WebApp;
+const tgVer=v=>{try{return Boolean(tg&&tg.isVersionAtLeast&&tg.isVersionAtLeast(v))}catch(e){return false}};
+try{if(tg){tg.ready&&tg.ready();tg.expand&&tg.expand();if(tgVer('7.7')&&tg.disableVerticalSwipes)tg.disableVerticalSwipes()}}catch(e){}
+const hasCloudStorage=()=>tgVer('6.9')&&Boolean(tg&&tg.CloudStorage);
+const N=8,$=s=>document.querySelector(s);
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const an=(el,kf,o)=>el.animate(kf,RM?{...o,duration:1,delay:0}:o);
+
+/* ===== Каталог форм: 65 уникальных ориентаций из декомпиляции (ID 1-51 без дубля 41, 101-111, 200-203).
+   Поворота нет: каждая ориентация - отдельная запись. По умолчанию включено только ядро (ID 1-51):
+   в каких режимах используются большие прямоугольники и «арки», неизвестно (см. CFG). ===== */
+const CORE="#|#/#|##|#/#/#|###|##/#.|#/#/#/#|#../###|##/##|.#./###|#####|###/..#/..#|###/###/###|.##/##.|##/.#|#./##/.#|####|##./.##|.#/##/#.|#./##/#.|###/#../#..|#/#/#/#/#|#../#../###|..#/..#/###|.#/##/.#|###/.#.|#./##|.#/##|.#/.#/##|###/..#|##/#./#.|##/.#/.#|..#/###|###/#..|###/###|##/##/##|#./.#|.#/#.|#../.#./..#|..#/.#./#..|#./#./##|..#/###/..#|#.#/###|##/#./##|###/#.#|##/.#/##|.#./.#./###|#../###/#..|###/.#./.#.|.#./###/.#.";
+const BIG="#####/#####|##/##/##/##/##|####/####|##/##/##/##|#####/#####/#####|###/###/###/###/###|####/####/####|###/###/###/###|#####/#####/#####/#####|####/####/####/####/####|#####/#####/#####/#####/#####";
+const ARCH=".#./#.#|#.#/.#.|#./.#/#.|.#/#./.#";
+const CFG={big:false,arch:false,hard:false,budget:40}; // hard: опциональный «жёсткий, но решаемый» набор
+const WT={1:.5,2:1,3:1.1,4:1.1,5:.8,6:.6,8:.3,9:.5,10:.2,12:.15,15:.1,20:.05,25:.03}; // веса - моя настройка, не данные оригинала
+const POOL=[];
+[[CORE,'core'],[BIG,'big'],[ARCH,'arch']].forEach(([s,g])=>s.split('|').forEach(x=>{
+ const m=x.split('/').map(r=>[...r].map(ch=>ch==='#'?1:0));POOL.push({m,n:m.flat().filter(Boolean).length,g})}));
+const AP=POOL.filter(s=>s.g==='core'||(CFG.big&&s.g==='big')||(CFG.arch&&s.g==='arch'));
+const AW=AP.map(s=>WT[s.n]||.1),AWS=AW.reduce((a,b)=>a+b);
+function np(small){let pool=AP,w=AW,sum=AWS;
+ if(small){pool=AP.filter(s=>s.n<=4&&s.n>1);w=pool.map(s=>WT[s.n]);sum=w.reduce((a,b)=>a+b)}
+ let x=Math.random()*sum,i=0;while(i<pool.length-1&&(x-=w[i])>0)i++;
+ return{m:pool[i].m,c:0}}
+
+/* ===== тема ===== */
+const TH=[
+{name:'Синяя',bg:'#101A46',ac:'#245BFF',p:['#245BFF','#4F86FF','#8DB4FF','#5B3DF5','#2FC4F0']},
+{name:'Красно-чёрная',bg:'#080808',ac:'#C1121F',p:['#C1121F','#E5383B','#FF6B6B','#8A0F1A','#F4845F']},
+{name:'Кислотно-зелёная',bg:'#0A0A0A',ac:'#B6FF00',p:['#B6FF00','#7DFF3A','#E4FF5E','#3DDC84','#F2FF9A']},
+{name:'Оранжево-коричневая',bg:'#24150F',ac:'#D96B27',p:['#D96B27','#F0944D','#A8501E','#F2C078','#E8553A']},
+{name:'Розово-графитовая',bg:'#292929',ac:'#C88E9B',p:['#C88E9B','#E3B5C0','#A56E7C','#F2D3D9','#8E7F9E']}];
+let ti=0;
+function theme(){const t=TH[ti],s=document.documentElement.style;
+ s.setProperty('--bg',t.bg);s.setProperty('--ac',t.ac);t.p.forEach((c,k)=>s.setProperty('--c'+k,c));
+ try{if(tgVer('6.1')){tg.setHeaderColor&&tg.setHeaderColor(t.bg);tg.setBackgroundColor&&tg.setBackgroundColor(t.bg)}}catch(e){}}
+
+/* ===== звук (WebAudio, без файлов) ===== */
+let ac=null,mg=null,muted=false;
+try{muted=localStorage.getItem('mute')==='1'}catch(e){}
+function A(){if(!ac){try{ac=new(window.AudioContext||window.webkitAudioContext)();
+ const cp=ac.createDynamicsCompressor();mg=ac.createGain();mg.gain.value=.9;mg.connect(cp);cp.connect(ac.destination)}catch(e){}}
+ if(ac&&ac.state==='suspended')ac.resume();return ac}
+function tone(f,t0,d,type,v,f2){const a=A();if(!a||muted)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+t0;
+ o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+ o.connect(g);g.connect(mg);o.start(t);o.stop(t+d+.03)}
+function noise(t0,d,f1,f2,v){const a=A();if(!a||muted)return;const len=a.sampleRate*d|0,b=a.createBuffer(1,len,a.sampleRate),x=b.getChannelData(0);
+ for(let i=0;i<len;i++)x[i]=Math.random()*2-1;
+ const s=a.createBufferSource(),fl=a.createBiquadFilter(),g=a.createGain(),t=a.currentTime+t0;
+ s.buffer=b;fl.type='bandpass';fl.Q.value=1.2;fl.frequency.setValueAtTime(f1,t);fl.frequency.exponentialRampToValueAtTime(f2,t+d);
+ g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(fl);fl.connect(g);g.connect(mg);s.start(t)}
+const PENT=[0,2,4,7,9,12,14,16,19,21];
+const hz=k=>440*Math.pow(2,k/12);
+const SND={
+ pick:()=>tone(560,0,.06,'triangle',.07,760),
+ drop:n=>{tone(150+n*7,0,.13,'sine',.3,60);tone(900,0,.03,'square',.03)},
+ bad:()=>{tone(160,0,.12,'sawtooth',.06,100);tone(120,.07,.12,'sawtooth',.05,80)},
+ clear:(L,s)=>{noise(0,.28,500,4000,.14);const n=Math.min(L,4)+3,b=Math.min(s,5)*2;
+  for(let k=0;k<n;k++)tone(hz(PENT[k]+b),k*.065,.22,'triangle',.16)},
+ full:()=>{noise(0,.6,300,6000,.16);[0,2,4,5,7].forEach((d,k)=>tone(hz(PENT[d+3]),k*.08,.4,'square',.07));tone(hz(24),.45,.6,'triangle',.14)},
+ record:()=>[12,16,19,24].forEach((k,i)=>tone(hz(k),i*.09,.35,'triangle',.14)),
+ over:()=>[392,330,262,196].forEach((f,k)=>tone(f,k*.16,.35,'triangle',.18,f*.97))};
+$('#snd').textContent=muted?'🔇':'🔊';
+$('#snd').onclick=()=>{muted=!muted;$('#snd').textContent=muted?'🔇':'🔊';try{localStorage.setItem('mute',muted?'1':'0')}catch(e){}A()};
+$('#pal').onclick=()=>{ti=(ti+1)%TH.length;theme();toast(TH[ti].name)};
+
+const board=$('#board'),trayEl=$('#tray'),cells=[];
+for(let i=0;i<N*N;i++){const d=document.createElement('div');d.className='c';board.appendChild(d);cells.push(d)}
+let grid,tray,score,shown=0,best=0,startBest=0,recFlag=false,drag=null,streak=0,round=0,lossStreak=0,lock=false;
+
+function loadBest(cb){
+ if(hasCloudStorage()){
+  try{
+   tg.CloudStorage.getItem('best',(e,v)=>{
+    if(!e&&v!==null&&v!==undefined&&v!==''){cb(+v||0)}
+    else{try{cb(+localStorage.getItem('best')||0)}catch(err){cb(0)}}
+   });
+   return;
+  }catch(e){}
+ }
+ try{cb(+localStorage.getItem('best')||0)}catch(e){cb(0)}}
+function saveBest(){
+ try{localStorage.setItem('best',String(best))}catch(e){}
+ if(hasCloudStorage()){
+  try{tg.CloudStorage.setItem('best',String(best))}catch(e){}
+ }}
+const buzz=t=>{try{if(tgVer('6.1')&&tg.HapticFeedback)tg.HapticFeedback.impactOccurred(t)}catch(e){}};
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.remove('on');void e.offsetWidth;e.classList.add('on')}
+
+/* ===== логика поля ===== */
+const cloneG=g=>g.map(r=>r.slice());
+function fitsOn(g,m,r,c){
+ for(let i=0;i<m.length;i++)for(let j=0;j<m[0].length;j++)if(m[i][j]){
+  const y=r+i,x=c+j;if(y<0||x<0||y>=N||x>=N||g[y][x])return false}
+ return true}
+const fits=(m,r,c)=>fitsOn(grid,m,r,c);
+function applyP(g,m,r,c,col){
+ const b=cloneG(g);m.forEach((row,i)=>row.forEach((v,j)=>{if(v)b[r+i][c+j]=col||1}));
+ const R=[],C=[];
+ for(let y=0;y<N;y++)if(b[y].every(Boolean))R.push(y);
+ for(let x=0;x<N;x++)if(b.every(rw=>rw[x]))C.push(x);
+ const pre=col?cloneG(b):null;
+ R.forEach(y=>b[y].fill(0));C.forEach(x=>b.forEach(rw=>rw[x]=0));
+ return{b,pre,R,C,L:R.length+C.length}}
+const anyFit=m=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fits(m,r,c))return true;return false};
+
+/* ===== выдача фигур =====
+ Структура по исследованию (evidence.zip): реестр именованных генераторов, правила выбирают
+ порядок генераторов по контексту партии, при неудаче берётся следующий, в конце запасной.
+ Сами генераторы и их условия - моя реконструкция по названиям (CLEAR_HELP, FILL_*, FIRST_ROUND_BLOCK,
+ CLEAR_BOARD_MODEL), а не код оригинала. Умышленно нерешаемых наборов здесь нет. */
+function solve(g,ms,empty,dl){
+ if(!ms.length)return empty?!g.some(r=>r.some(Boolean)):true;
+ if(dl&&performance.now()>dl)return false;
+ const seen=new Set();
+ for(let k=0;k<ms.length;k++){
+  const key=JSON.stringify(ms[k]);if(seen.has(key))continue;seen.add(key);
+  const rest=ms.filter((_,i)=>i!==k);
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fitsOn(g,ms[k],r,c)){
+   if(solve(applyP(g,ms[k],r,c).b,rest,empty,dl))return true}}
+ return false}
+let bf=new Map();
+function bestFor(m){ // лучшее размещение: очистки и плотное прилегание
+ if(bf.has(m))return bf.get(m);
+ let sc=-1,clr=false,mob=0;
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fits(m,r,c)){
+  mob++;const L=applyP(grid,m,r,c).L;let k=L*8;if(L)clr=true;
+  for(let i=0;i<m.length;i++)for(let j=0;j<m[0].length;j++)if(m[i][j])
+   for(const[dy,dx]of[[1,0],[-1,0],[0,1],[0,-1]]){
+    if(m[i+dy]&&m[i+dy][j+dx])continue;
+    const y=r+i+dy,x=c+j+dx;if(y<0||x<0||y>=N||x>=N||grid[y][x])k++}
+  if(k>sc)sc=k}
+ const o={sc,clr,mob};bf.set(m,o);return o}
+function context(){
+ let filled=0,holes=0;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  if(grid[y][x])filled++;else{let b=0;
+   for(const[dy,dx]of[[1,0],[-1,0],[0,1],[0,-1]]){const yy=y+dy,xx=x+dx;if(yy<0||xx<0||yy>=N||xx>=N||grid[yy][xx])b++}
+   if(b>=3)holes++}}
+ return{filled,fill:filled/(N*N),holes,round,score,best,lossStreak,streak}}
+function countFilled(b){
+ let cnt=0;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(b[y][x])cnt++;
+ return cnt;
+}
+function minFilled(g,ms,dl){
+ if(!ms.length)return countFilled(g);
+ if(dl&&performance.now()>dl)return 999;
+ if(ms.length===1){
+  let min=999;const m=ms[0];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fitsOn(g,m,r,c)){
+   const cnt=countFilled(applyP(g,m,r,c).b);
+   if(cnt<min){min=cnt;if(min===0)return 0;}
+  }
+  return min;
+ }
+ let min=999;
+ const seen=new Set();
+ for(let k=0;k<ms.length;k++){
+  const key=JSON.stringify(ms[k]);if(seen.has(key))continue;seen.add(key);
+  const rest=ms.filter((_,i)=>i!==k);
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fitsOn(g,ms[k],r,c)){
+   const nb=applyP(g,ms[k],r,c).b;
+   const v=minFilled(nb,rest,dl);
+   if(v<min){min=v;if(min===0)return 0;}
+  }
+ }
+ return min;
+}
+function triples(k,dl,small){
+ const out=[];
+ for(let t=0;t<k&&performance.now()<dl;t++){
+  const ps=[np(small),np(small),np(small)];
+  if(ps[0].m===ps[1].m&&ps[1].m===ps[2].m)continue;
+  if(!solve(grid,ps.map(p=>p.m),false,dl))continue;
+  out.push(ps)}
+ return out}
+const G={
+ firstRound:(c,dl)=>{const t=triples(12,dl,true);return t.length?t[Math.random()*t.length|0]:null},
+ base:(c,dl)=>{const t=triples(8,dl);return t.length?t[Math.random()*t.length|0]:null},
+ clearHelp:(c,dl)=>{const t=triples(30,dl).filter(ps=>ps.some(p=>bestFor(p.m).clr));
+  return t.length?t[Math.random()*t.length|0]:null},
+ reduce8:(c,dl)=>{
+  const target=c.filled-8,cand=[];
+  for(let iter=0;iter<40&&performance.now()<dl&&cand.length<8;iter++){
+   const small=c.fill>0.7;
+   const ps=[np(small),np(small),np(small)];
+   if(ps[0].m===ps[1].m&&ps[1].m===ps[2].m)continue;
+   if(!solve(grid,ps.map(p=>p.m),false,dl))continue;
+   const val=minFilled(grid,ps.map(p=>p.m),dl);
+   if(val<=target)cand.push({ps,min:val});
+  }
+  if(!cand.length)return null;
+  cand.sort((a,b)=>a.min-b.min);
+  const top=cand.slice(0,3);
+  return top[Math.random()*top.length|0].ps;
+ }};
+function plan(c){
+ if(c.round===0)return['firstRound','base'];
+ if(c.fill<0.3)return['base'];
+ if(c.fill<=0.5)return['clearHelp'];
+ return['reduce8'];}
+function constructTray(){ // запасной: гарантированно решаемая тройка
+ let g=cloneG(grid);const ps=[];
+ for(let k=0;k<3;k++){
+  const ord=AP.map((_,i)=>i).sort(()=>Math.random()-.5);let ok=false;
+  for(const i of ord){const m=AP[i].m;
+   for(let r=0;r<N&&!ok;r++)for(let c=0;c<N&&!ok;c++)if(fitsOn(g,m,r,c)){g=applyP(g,m,r,c).b;ps.push({m,c:0});ok=true}
+   if(ok)break}
+  if(!ok)ps.push(np())}
+ return ps}
+function genTray(){
+ bf=new Map();const c=context(),dl=performance.now()+CFG.budget;round++;
+ let res=null;
+ for(const name of plan(c)){const t=G[name]&&G[name](c,dl);if(t){res=t;break}}
+ if(!res){
+  const fallback=constructTray();
+  if(fallback&&solve(grid,fallback.map(p=>p.m),false))res=fallback;
+  else res=G.base(c,performance.now()+25)||fallback;
+ }
+ if(res)res.forEach(p=>{if(p)p.c=0});
+ return res;}
+
+/* ===== отрисовка и анимации ===== */
+function render(pv){
+ cells.forEach((el,k)=>{const v=grid[k/N|0][k%N];el.className='c'+(v?' f c'+(v-1):'')});
+ if(pv)pv.m.forEach((row,i)=>row.forEach((v,j)=>{if(v)cells[(pv.r+i)*N+pv.c+j].className='c p'}))}
+function mk(p,cs){
+ const d=document.createElement('div');d.className='pc';
+ d.style.gridTemplateColumns=`repeat(${p.m[0].length},${cs-3}px)`;d.style.gridAutoRows=(cs-3)+'px';
+ p.m.forEach(row=>row.forEach(v=>{const e=document.createElement('div');e.className=v?'c f c'+p.c:'c h';d.appendChild(e)}));
+ return d}
+function renderTray(anim){
+ trayEl.innerHTML='';
+ tray.forEach((p,i)=>{const s=document.createElement('div');s.className='slot';
+  if(p){const pc=mk(p,28);s.appendChild(pc);s.addEventListener('pointerdown',e=>start(e,i,s));
+   if(anim)an(pc,[{transform:'translateY(70px) scale(.6)',opacity:0},{transform:'none',opacity:1}],{duration:420,delay:i*80,easing:'cubic-bezier(.2,.9,.3,1.15)',fill:'backwards'})}
+  trayEl.appendChild(s)})}
+function countTo(from,to){
+ const el=$('#sc'),t0=performance.now(),d=RM?1:Math.min(500,200+Math.abs(to-from)*3);
+ (function f(t){const k=Math.min(1,(t-t0)/d);el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(f)})(t0)}
+const T=d=>`translate3d(${d.x}px,${d.y}px,0) scale(${d.s})`;
+function start(e,i,slot){
+ if(drag||lock)return;A();SND.pick();
+ const p=tray[i],cs=board.clientWidth/N,g=mk(p,cs),pc=slot.firstChild;
+ g.style.cssText+=';position:fixed;left:0;top:0;pointer-events:none;z-index:9;opacity:.95;will-change:transform';
+ document.body.appendChild(g);
+ const gw=g.offsetWidth,gh=g.offsetHeight,sr=pc.getBoundingClientRect();
+ pc.style.opacity=.25;
+ drag={i,p,g,slot,gw,gh,cs,t:null,s0:Math.min(1,sr.width/gw),hx:sr.left+sr.width/2-gw/2,hy:sr.top+sr.height/2-gh/2,
+  x:sr.left+sr.width/2-gw/2,y:sr.top+sr.height/2-gh/2,s:Math.min(1,sr.width/gw),tx:0,ty:0,ts:1,last:performance.now()};
+ move(e);requestAnimationFrame(tick)}
+function tick(now){
+ if(!drag||drag.dead)return;const d=drag,k=1-Math.exp(-(now-d.last)/45);d.last=now;
+ d.x+=(d.tx-d.x)*k;d.y+=(d.ty-d.y)*k;d.s+=(d.ts-d.s)*k;d.g.style.transform=T(d);requestAnimationFrame(tick)}
+function move(e){
+ if(!drag)return;
+ const d=drag,gl=e.clientX-d.gw/2,gt=e.clientY-d.gh-60,rc=board.getBoundingClientRect(),cs=rc.width/N;
+ const c=Math.round((gl-rc.left-3)/cs),r=Math.round((gt-rc.top-3)/cs);
+ d.t=fits(d.p.m,r,c)?{r,c}:null;
+ if(d.t){d.tx=rc.left+3+c*cs;d.ty=rc.top+3+r*cs;d.ts=1}else{d.tx=gl;d.ty=gt;d.ts=1.04}
+ render(d.t?{m:d.p.m,r:d.t.r,c:d.t.c}:null)}
+function end(){
+ if(!drag)return;
+ const d=drag;drag=null;d.dead=true;
+ if(!d.t){
+  const sr=d.slot.getBoundingClientRect(),to=T({x:d.hx,y:d.hy,s:d.s0});
+  const a=an(d.g,[{transform:T(d)},{transform:to}],{duration:260,easing:'cubic-bezier(.3,.8,.25,1)',fill:'forwards'});
+  a.onfinish=()=>{d.g.remove();if(d.slot.isConnected&&d.slot.firstChild)d.slot.firstChild.style.opacity=1};
+  render();SND.bad();return}
+ d.g.remove();place(d.i,d.p,d.t.r,d.t.c)}
+function place(i,p,r,c){
+ const n=p.m.flat().filter(Boolean).length,res=applyP(grid,p.m,r,c,p.c+1),L=res.L;
+ streak=L?streak+1:0;
+ score+=n+L*L*10+(streak>=4?(streak-3)*10*L:0);
+ const clean=!res.b.some(row=>row.some(Boolean));
+ if(clean)score+=150;
+ grid=res.pre;render();
+ p.m.forEach((row,a)=>row.forEach((v,b)=>{if(v)an(cells[(r+a)*N+c+b],[{transform:'scale(.65)'},{transform:'scale(1.12)',offset:.6},{transform:'scale(1)'}],{duration:190,easing:'ease-out'})}));
+ tray[i]=null;renderTray(false);
+ if(L){SND.clear(L,streak);buzz('heavy')}else{SND.drop(n);buzz('light')}
+ if(streak>=4)toast('Комбо ×'+streak);
+ const finish=()=>{
+  cells.forEach(e=>e.getAnimations().forEach(a=>a.cancel()));
+  grid=res.b;render();
+  if(clean){SND.full();ti=(ti+1)%TH.length;theme();toast('Поле чисто! +150');
+   an(board,[{transform:'scale(1)'},{transform:'scale(1.05)'},{transform:'scale(1)'}],{duration:500,easing:'ease-in-out'})}
+  if(tray.every(v=>!v)){tray=genTray();renderTray(true)}
+  ui();lock=false;
+  if(tray.every(v=>!v||!anyFit(v.m)))over()};
+ if(L){
+  lock=true;const set=new Set();
+  res.R.forEach(y=>{for(let x=0;x<N;x++)set.add(y*N+x)});res.C.forEach(x=>{for(let y=0;y<N;y++)set.add(y*N+x)});
+  const cy=r+p.m.length/2,cx=c+p.m[0].length/2;let mx=0;
+  set.forEach(k=>{const dl=Math.hypot((k/N|0)-cy,k%N-cx)*28;mx=Math.max(mx,dl);
+   an(cells[k],[{transform:'scale(1)',filter:'brightness(1)',opacity:1},{transform:'scale(1.12)',filter:'brightness(1.7)',opacity:1,offset:.35},{transform:'scale(.1)',filter:'brightness(1.7)',opacity:0}],{duration:340,delay:dl,easing:'ease-in',fill:'forwards'})});
+  setTimeout(finish,RM?10:340+mx+30)}
+ else finish()}
+function ui(){
+ if(score>best){if(!recFlag&&startBest>0){recFlag=true;SND.record();toast('Новый рекорд!')}best=score;saveBest()}
+ countTo(shown,score);shown=score;$('#bs').textContent=best}
+function over(){
+ try{if(tgVer('6.1')&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred('error')}catch(e){}
+ lossStreak=score<startBest?lossStreak+1:0;
+ SND.over();$('#fin').textContent='Счёт: '+score;$('#over').classList.add('on')}
+function init(){
+ grid=Array.from({length:N},()=>Array(N).fill(0));
+ score=0;shown=0;streak=0;round=0;recFlag=false;startBest=best;lock=false;
+ tray=genTray();
+ $('#over').classList.remove('on');theme();render();renderTray(true);$('#sc').textContent=0;$('#bs').textContent=best}
+addEventListener('pointermove',move);
+addEventListener('pointerup',end);
+addEventListener('pointercancel',end);
+$('#again').onclick=init;
+loadBest(v=>{best=v;init()});
+</script></body></html>
