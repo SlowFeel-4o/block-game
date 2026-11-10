@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { setupRealtime } from './server/realtime.js';
 
 export default defineConfig({
   server: {
@@ -11,4 +12,19 @@ export default defineConfig({
     port: 3000,
     allowedHosts: true,
   },
+  plugins: [
+    {
+      name: 'realtime-plugin',
+      configureServer(server) {
+        if (server.httpServer) {
+          setupRealtime(server.httpServer);
+        }
+      },
+      configurePreviewServer(server) {
+        if (server.httpServer) {
+          setupRealtime(server.httpServer);
+        }
+      }
+    }
+  ]
 });

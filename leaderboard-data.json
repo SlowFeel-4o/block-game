@@ -1,0 +1,51 @@
+[
+  {
+    "id": "bot-1",
+    "name": "Александр",
+    "username": "alex_cube",
+    "bestScore": 3420,
+    "updatedAt": 1794122631025
+  },
+  {
+    "id": "bot-2",
+    "name": "Екатерина",
+    "username": "kate_star",
+    "bestScore": 2890,
+    "updatedAt": 1794209031025
+  },
+  {
+    "id": "bot-3",
+    "name": "Максим",
+    "username": "max_master",
+    "bestScore": 2410,
+    "updatedAt": 1794277431025
+  },
+  {
+    "id": "bot-4",
+    "name": "София",
+    "username": "sofia_p",
+    "bestScore": 1980,
+    "updatedAt": 1794288231025
+  },
+  {
+    "id": "bot-5",
+    "name": "Артём",
+    "username": "artem_88",
+    "bestScore": 1650,
+    "updatedAt": 1794293631025
+  },
+  {
+    "id": "bot-6",
+    "name": "Даниил",
+    "username": "daniil_top",
+    "bestScore": 1420,
+    "updatedAt": 1794294831025
+  },
+  {
+    "id": "test_1",
+    "name": "Tester",
+    "username": "",
+    "bestScore": 100,
+    "updatedAt": 1794295448108
+  }
+]

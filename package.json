@@ -10,6 +10,8 @@
     "lint": "node -c vite.config.js"
   },
   "dependencies": {
-    "vite": "^6.4.1"
+    "@types/ws": "^8.18.2",
+    "vite": "^6.4.1",
+    "ws": "^8.22.2"
   }
 }
